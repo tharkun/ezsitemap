@@ -2,7 +2,7 @@
 
 namespace eZ\Publish\Sitemap;
 
-final class Dom
+final class DOMDocument
 {
 
     private $domDocument = null;

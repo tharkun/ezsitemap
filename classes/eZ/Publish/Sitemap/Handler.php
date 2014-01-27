@@ -42,7 +42,7 @@ abstract class Handler
     abstract public function generateSitemap();
     abstract public function generateSitemapNews();
 
-    protected $dom = null;
+    protected $domDocument = null;
     protected $fileNumber = 1;
     protected $files = array();
 
@@ -94,18 +94,18 @@ abstract class Handler
     /**
      * @return null
      */
-    public function getDom()
+    public function getDOMDocument()
     {
-        return $this->dom;
+        return $this->domDocument;
     }
 
     /**
-     * @param Dom $dom
+     * @param DOMDocument $domDocument
      * @return handler
      */
-    public function setDom(Dom $dom)
+    public function setDOMDocument(DOMDocument $domDocument)
     {
-        $this->dom = $dom;
+        $this->domDocument = $domDocument;
 
         return $this;
     }
@@ -133,8 +133,8 @@ abstract class Handler
     final public function addFiles($mode)
     {
         $this->files[$this->fileNumber] = array(
-            'sName'         => Tools::getSitemapName($mode, $this->fileNumber),
-            'sXML'          => $this->dom->saveXML(),
+            'sName'         => Tools::getSitemapName( $mode, $this->fileNumber ),
+            'sXML'          => $this->domDocument->saveXML(),
             'bGenerated'    => false,
         );
         $this->fileNumber++;
@@ -154,20 +154,20 @@ abstract class Handler
         Cli::displayMemoryUsage();
 
         $urlset = null;
-        if ($this->dom == null)
+        if ($this->domDocument == null)
         {
-            $this->setDom(Dom::instance()->init($urlset, $sMode));
+            $this->setDOMDocument(DOMDocument::instance()->init($urlset, $sMode));
         }
         else
         {
-            $urlset = $this->dom->firstChild;
+            $urlset = $this->domDocument->firstChild;
             $this->fileNumber--;
         }
 
         $totNode = count($aNode);
         $iTot   = 0;
         $iCompt = 0;
-        $iWeight = strlen($this->dom->saveXML());
+        $iWeight = strlen($this->domDocument->saveXML());
 
         Cli::display("Looping through $totNode nodes");
         foreach ($aNode as $iKey => $mMixed)
@@ -177,7 +177,7 @@ abstract class Handler
             $iTot++;
             Cli::displayPercent($iTot, $totNode);
 
-            $url = $this->dom->addElement($urlset, 'url');
+            $url = $this->domDocument->addElement($urlset, 'url');
 
             if (is_array($oNode)){
                 $this->addElementsToNodeFromArray($url, $oNode, $sMode);
@@ -200,11 +200,11 @@ abstract class Handler
                 $this->addFiles($sMode);
                 Cli::display("Sitemap weight or url limit reached => Generating new file");
 
-                $this->setDom(Dom::instance()->init($urlset, $sMode));
+                $this->setDOMDocument(DOMDocument::instance()->init($urlset, $sMode));
 
-                $urlset->appendChild( $this->dom->importNode($url, true));
+                $urlset->appendChild( $this->domDocument->importNode($url, true));
                 $iCompt = 1;
-                $iWeight = strlen($this->dom->saveXML());
+                $iWeight = strlen($this->domDocument->saveXML());
             }
 
             Tools::unsetRecursively($aNode[$iKey]);
@@ -242,7 +242,7 @@ abstract class Handler
 
     protected function addElementsToNodeFromEZObject(&$url, $oNode, $sMode) {
         // récupération de l'url absolue et création de la balise loc
-        $this->dom->addElement($url, 'loc', self::$sUrlMainObjects.$oNode->attribute('url_alias'));
+        $this->domDocument->addElement($url, 'loc', self::$sUrlMainObjects.$oNode->attribute('url_alias'));
 
         switch ($sMode) {
             case self::MODE_GOOGLE_NEWS:
@@ -252,14 +252,14 @@ abstract class Handler
                 //récupération de la date de modif et création de la balise lastmod
                 $oObject = $oNode->attribute('object');
                 $datemod = date('c',$oObject->attribute('modified'));
-                $this->dom->addElement($url, 'lastmod', $datemod);
+                $this->domDocument->addElement($url, 'lastmod', $datemod);
 
                 //création des balises changefreq et priority
                 $sChangeFreq = $this->getChangeFreqFromEZObject($oNode, $sMode);
-                $this->dom->addElement($url, 'changefreq', $sChangeFreq);
+                $this->domDocument->addElement($url, 'changefreq', $sChangeFreq);
 
                 $priorityVal = $this->getPriorityFromEZObject($oNode, $sMode);
-                $this->dom->addElement($url, 'priority', $priorityVal);
+                $this->domDocument->addElement($url, 'priority', $priorityVal);
 
                 $this->addElementsToNodeFromEZObject_videos($url, $oNode);
                 break;
@@ -323,10 +323,10 @@ abstract class Handler
 
     final protected function addElementsToNodeFromEZObject_global(& $url, $oNode, $sMode) {
         //récupération de la date de modif et création de la balise lastmod
-        $this->dom->addElement($url, 'lastmod', date('c', $oNode->attribute('object')->attribute('modified')));
+        $this->domDocument->addElement($url, 'lastmod', date('c', $oNode->attribute('object')->attribute('modified')));
         //création des balises changefreq et priority
-        $this->dom->addElement($url, 'changefreq', $this->getChangeFreqFromEZObject($oNode, $sMode));
-        $this->dom->addElement($url, 'priority', $this->getPriorityFromEZObject($oNode, $sMode));
+        $this->domDocument->addElement($url, 'changefreq', $this->getChangeFreqFromEZObject($oNode, $sMode));
+        $this->domDocument->addElement($url, 'priority', $this->getPriorityFromEZObject($oNode, $sMode));
     }
 
     final protected function addNodesToArray(array & $aNodes, $mEZContentObjectTreeNode, $sMode) {
@@ -351,10 +351,10 @@ abstract class Handler
 
     final protected function addElementsToNodeFromArray_global(&$url, $array)
     {
-        $this->dom->addElement($url, 'loc',        $array['loc']);
-        $this->dom->addElement($url, 'lastmod',    $array['lastmod']);
-        $this->dom->addElement($url, 'changefreq', $array['changefreq']);
-        $this->dom->addElement($url, 'priority',   $array['priority']);
+        $this->domDocument->addElement($url, 'loc',        $array['loc']);
+        $this->domDocument->addElement($url, 'lastmod',    $array['lastmod']);
+        $this->domDocument->addElement($url, 'changefreq', $array['changefreq']);
+        $this->domDocument->addElement($url, 'priority',   $array['priority']);
     }
 
     protected function getCustomSitemapIndexFiles() {
@@ -370,27 +370,27 @@ abstract class Handler
 
 
     protected function addElementsToNodeFromEZObject_news(&$url, $oNode) {
-        $news = $this->dom->createElement('news:news');
+        $news = $this->domDocument->createElement('news:news');
         $url->appendChild($news);
 
         $oObject = $oNode->attribute('object');
 
-        $publication = $this->dom->createElement('news:publication');
+        $publication = $this->domDocument->createElement('news:publication');
 
-        $name = $this->dom->createElement('news:name');
-        $oCdataNode = $this->dom->createCDATASection( $this->getGoogleNewsPublicationName() );
+        $name = $this->domDocument->createElement('news:name');
+        $oCdataNode = $this->domDocument->createCDATASection( $this->getGoogleNewsPublicationName() );
         $name->appendChild($oCdataNode);
         $publication->appendChild($name);
 
-        $publication->appendChild($this->dom->createElement('news:language', substr($oObject->CurrentLanguage, 0, 2)));
+        $publication->appendChild($this->domDocument->createElement('news:language', substr($oObject->CurrentLanguage, 0, 2)));
         $news->appendChild($publication);
 
         $pubDate = date('c', $oObject->attribute('published'));
-        $publication_date = $this->dom->createElement('news:publication_date', $pubDate);
+        $publication_date = $this->domDocument->createElement('news:publication_date', $pubDate);
         $news->appendChild($publication_date);
 
-        $title = $this->dom->createElement('news:title');
-        $oCdataNode = $this->dom->createCDATASection($oObject->attribute('name'));
+        $title = $this->domDocument->createElement('news:title');
+        $oCdataNode = $this->domDocument->createCDATASection($oObject->attribute('name'));
         $title->appendChild($oCdataNode);
         $news->appendChild($title);
 
@@ -407,7 +407,7 @@ abstract class Handler
                 $oKeyword = $dataMap['keyword']->content();
                 $aWords = $oKeyword->attribute('keywords');
                 if(count($aWords)>0){
-                    $keywords = $this->dom->createElement('news:keywords', implode(', ',$aWords));
+                    $keywords = $this->domDocument->createElement('news:keywords', implode(', ',$aWords));
                     $news->appendChild($keywords);
                 }
             } else {
@@ -418,7 +418,7 @@ abstract class Handler
 
                             $aWords = $oContent['keywords'];
                             if(strlen($aWords)>0){
-                                $keywords = $this->dom->createElement('news:keywords', $aWords);
+                                $keywords = $this->domDocument->createElement('news:keywords', $aWords);
                                 $news->appendChild($keywords);
                             }
                              break;
@@ -451,12 +451,12 @@ abstract class Handler
 
 
     final protected function addElementsToNodeFromArray_images(&$url, $array) {
-        $this->dom->addElement($url, 'loc',        $array['loc']);
-        $this->dom->addElement($url, 'lastmod',    $array['lastmod']);
-        $this->dom->addElement($url, 'changefreq', $array['changefreq']);
-        $this->dom->addElement($url, 'priority',   $array['priority']);
-        $this->dom->addElement($url, 'language',   $array['language']);
-        $oImage = $this->dom->addElement($url, 'image:image');
+        $this->domDocument->addElement($url, 'loc',        $array['loc']);
+        $this->domDocument->addElement($url, 'lastmod',    $array['lastmod']);
+        $this->domDocument->addElement($url, 'changefreq', $array['changefreq']);
+        $this->domDocument->addElement($url, 'priority',   $array['priority']);
+        $this->domDocument->addElement($url, 'language',   $array['language']);
+        $oImage = $this->domDocument->addElement($url, 'image:image');
         $aXmlChildrenNodeName = array(
             'image:landing_page_loc',
             'image:title',
@@ -476,10 +476,10 @@ abstract class Handler
             ) {
                 if (is_array($array['image:image'][$sXmlChildrenNodeName]) && count($array['image:image'][$sXmlChildrenNodeName])) {
                     foreach ($array['image:image'][$sXmlChildrenNodeName] as $sKeyword) {
-                        $this->dom->addElement($oImage, $sXmlChildrenNodeName, $sKeyword);
+                        $this->domDocument->addElement($oImage, $sXmlChildrenNodeName, $sKeyword);
                     }
                 }
-                else $this->dom->addElement($oImage, $sXmlChildrenNodeName, $array['image:image'][$sXmlChildrenNodeName]);
+                else $this->domDocument->addElement($oImage, $sXmlChildrenNodeName, $array['image:image'][$sXmlChildrenNodeName]);
             }
         }
     }
@@ -618,18 +618,18 @@ abstract class Handler
         $sUrl      = ( isset($aParams["Url"]) ) ? $aParams["Url"] : false;
 
         $sitemapindex = null;
-        $this->setDom(Dom::instance()->init($sitemapindex, 'sitemapindex'));
+        $this->setDOMDocument(DOMDocument::instance()->init($sitemapindex, 'sitemapindex'));
 
         // Creating files
         foreach ($this->files as $map) {
 
-            $sitemap = $this->dom->createElement('sitemap');
+            $sitemap = $this->domDocument->createElement('sitemap');
             $sitemapindex->appendChild($sitemap);
-            $loc = $this->dom->createElement('loc', 'http://'.$sUrl.'/'.$map["sName"]);
+            $loc = $this->domDocument->createElement('loc', 'http://'.$sUrl.'/'.$map["sName"]);
             $sitemap->appendChild($loc);
 
             $dateModif = date('c');
-            $lastmod = $this->dom->createElement('lastmod', $dateModif);
+            $lastmod = $this->domDocument->createElement('lastmod', $dateModif);
             $sitemap->appendChild($lastmod);
         }
 
@@ -639,9 +639,9 @@ abstract class Handler
             Cli::display("Fetching custom sitemap index file : count = ".count($aCustomSitemapIndexFiles));
             if (is_array($aCustomSitemapIndexFiles) && count($aCustomSitemapIndexFiles)) {
                 foreach ($aCustomSitemapIndexFiles as $sCustomSitemapIndexFile) {
-                    $sitemap = $this->dom->addElement($sitemapindex, 'sitemap', '');
-                    $this->dom->addElement($sitemap, 'loc', preg_match('@^http://@', $sCustomSitemapIndexFile) ? $sCustomSitemapIndexFile : 'http://'.$sUrl.'/'.Tools::getSitemapName('custom', $sCustomSitemapIndexFile));
-                    $this->dom->addElement($sitemap, 'lastmod', date('c'));
+                    $sitemap = $this->domDocument->addElement($sitemapindex, 'sitemap', '');
+                    $this->domDocument->addElement($sitemap, 'loc', preg_match('@^http://@', $sCustomSitemapIndexFile) ? $sCustomSitemapIndexFile : 'http://'.$sUrl.'/'.Tools::getSitemapName('custom', $sCustomSitemapIndexFile));
+                    $this->domDocument->addElement($sitemap, 'lastmod', date('c'));
                 }
             }
         }
@@ -658,7 +658,7 @@ abstract class Handler
             return false;
         }
 
-        $write = fwrite($handle, $this->dom->saveXML());
+        $write = fwrite($handle, $this->domDocument->saveXML());
         if(!$write){
             fclose($handle);
             Cli::display("Writing file '$sName'", 1, 0, 50, 'ko : unable to execute fwrite');
