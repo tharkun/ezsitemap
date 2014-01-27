@@ -8,19 +8,6 @@ use Project\Sitemap\Handler as Custom;
 class Example extends Custom
 {
 
-    public function __construct($sMode = 'global')
-    {
-        parent::__construct( $sMode );
-    }
-
-
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-    /*************************************** Sitemap generation methods ****************************************************/
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-
-
     public function generateSitemap()
     {
         $sMode = 'global';
@@ -38,7 +25,7 @@ class Example extends Custom
         \eZContentObject::clearCache();
 
         // Lancement de la génération
-        $aFiles = parent::generateMap( $aNode, $sMode);
+        parent::generateMap( $aNode, $sMode);
 
         $this->generate( $sMode );
     }
@@ -57,7 +44,7 @@ class Example extends Custom
         \eZContentObject::clearCache();
 
         // Lancement de la génération
-        $aFiles = parent::generateMap( $node, $sMode);
+        parent::generateMap( $node, $sMode);
 
         $this->generate( $sMode );
     }

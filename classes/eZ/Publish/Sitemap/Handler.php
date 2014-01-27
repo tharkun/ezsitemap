@@ -42,6 +42,8 @@ abstract class Handler
     abstract public function generateSitemap();
     abstract public function generateSitemapNews();
 
+    private $mode = self::MODE_GOOGLE_GLOBAL;
+
     protected $domDocument = null;
     protected $fileNumber = 1;
     protected $files = array();
@@ -58,8 +60,10 @@ abstract class Handler
     /***********************************************************************************************************************/
 
 
-    protected function __construct($sMode = self::MODE_GOOGLE_GLOBAL)
+    protected function __construct($mode = self::MODE_GOOGLE_GLOBAL)
     {
+        $this->setMode( $mode );
+
         self::$bHasDeletedFolderContent = false;
 
         self::$sUrlMainObjects = $this->getCustomEZObjectsUrl();
@@ -94,6 +98,25 @@ abstract class Handler
     /**
      * @return null
      */
+    public function getMode()
+    {
+        return $this->mode;
+    }
+
+    /**
+     * @param string $mode
+     * @return $this
+     */
+    public function setMode($mode)
+    {
+        $this->mode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * @return null
+     */
     public function getDOMDocument()
     {
         return $this->domDocument;
@@ -101,7 +124,7 @@ abstract class Handler
 
     /**
      * @param DOMDocument $domDocument
-     * @return handler
+     * @return $this
      */
     public function setDOMDocument(DOMDocument $domDocument)
     {
@@ -128,7 +151,7 @@ abstract class Handler
 
     /**
      * @param $mode
-     * @return handler
+     * @return $this
      */
     final public function addFiles($mode)
     {
@@ -148,15 +171,15 @@ abstract class Handler
     /***********************************************************************************************************************/
 
 
-    final protected function generateMap(array & $aNode, $sMode = self::MODE_GOOGLE_GLOBAL ) {
-
-        Cli::display("Starting generation : sMode = '$sMode'", 1, 2);
+    final protected function generateMap( array & $aNode, $sMode = self::MODE_GOOGLE_GLOBAL )
+    {
+        Cli::display( "Starting generation : sMode = '$sMode'", 1, 2 );
         Cli::displayMemoryUsage();
 
         $urlset = null;
-        if ($this->domDocument == null)
+        if ( $this->domDocument == null )
         {
-            $this->setDOMDocument(DOMDocument::instance()->init($urlset, $sMode));
+            $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $sMode ) );
         }
         else
         {
@@ -164,78 +187,85 @@ abstract class Handler
             $this->fileNumber--;
         }
 
-        $totNode = count($aNode);
+        $totNode = count( $aNode );
         $iTot   = 0;
         $iCompt = 0;
-        $iWeight = strlen($this->domDocument->saveXML());
+        $iWeight = strlen( $this->domDocument->saveXML() );
 
-        Cli::display("Looping through $totNode nodes");
-        foreach ($aNode as $iKey => $mMixed)
+        Cli::display( "Looping through $totNode nodes" );
+        foreach ( $aNode as $iKey => $mMixed )
         {
-            $oNode = is_string($mMixed) ? json_decode($mMixed, true) : $mMixed;
+            $oNode = is_string( $mMixed ) ? json_decode( $mMixed, true ) : $mMixed;
 
             $iTot++;
-            Cli::displayPercent($iTot, $totNode);
+            Cli::displayPercent( $iTot, $totNode );
 
-            $url = $this->domDocument->addElement($urlset, 'url');
+            $url = $this->domDocument->addElement( $urlset, 'url' );
 
-            if (is_array($oNode)){
-                $this->addElementsToNodeFromArray($url, $oNode, $sMode);
-            } elseif ($oNode instanceof \eZContentObjectTreeNode){
-                $this->addElementsToNodeFromEZObject($url, $oNode, $sMode);
-            } else{
+            if ( is_array( $oNode ) )
+            {
+                $this->addElementsToNodeFromArray( $url, $oNode, $sMode );
+            }
+            elseif ( $oNode instanceof \eZContentObjectTreeNode )
+            {
+                $this->addElementsToNodeFromEZObject( $url, $oNode, $sMode );
+            }
+            else
+            {
                 continue;
             }
             $iCompt++;
 
             // Calculating the xml weight
             $oDocTemp = new \DOMDocument( '1.0', 'utf-8' );
-            $oDocTemp->appendChild( $oDocTemp->importNode($url, true) );
-            $sTempXML = str_replace('<?xml version="1.0" encoding="utf-8"?>', '', $oDocTemp->saveXML());
-            $iWeight += strlen( substr($sTempXML, 1, strlen($sTempXML)-2) );
+            $oDocTemp->appendChild( $oDocTemp->importNode( $url, true ) );
+            $sTempXML = str_replace( '<?xml version="1.0" encoding="utf-8"?>', '', $oDocTemp->saveXML() );
+            $iWeight += strlen( substr( $sTempXML, 1, strlen( $sTempXML ) - 2 ) );
 
-            if ( Tools::testLimit($iWeight, $sMode, $iCompt) )
+            if ( Tools::testLimit( $iWeight, $sMode, $iCompt ) )
             {
-                $urlset->removeChild($url);
-                $this->addFiles($sMode);
-                Cli::display("Sitemap weight or url limit reached => Generating new file");
+                $urlset->removeChild( $url );
+                $this->addFiles( $sMode );
+                Cli::display( "Sitemap weight or url limit reached => Generating new file" );
 
-                $this->setDOMDocument(DOMDocument::instance()->init($urlset, $sMode));
+                $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $sMode ) );
 
-                $urlset->appendChild( $this->domDocument->importNode($url, true));
+                $urlset->appendChild( $this->domDocument->importNode( $url, true ) );
                 $iCompt = 1;
-                $iWeight = strlen($this->domDocument->saveXML());
+                $iWeight = strlen( $this->domDocument->saveXML() );
             }
 
-            Tools::unsetRecursively($aNode[$iKey]);
+            Tools::unsetRecursively( $aNode[$iKey] );
         }
 
-        Tools::unsetRecursively($aNode);
+        Tools::unsetRecursively( $aNode );
 
-        Cli::display("Last node reached", 2);
-        $this->addFiles($sMode);
+        Cli::display( "Last node reached", 2 );
+        $this->addFiles( $sMode );
         Cli::displayMemoryUsage();
 
-        return array();
+        return $this;
     }
 
     private function getMethodNameToTransformNodeWithMode($sBasicName, $sMode)
     {
-        return $sBasicName . '_' . ( method_exists($this, $sBasicName . '_' . $sMode) ? $sMode : 'global' );
+        return $sBasicName . '_' . ( method_exists( $this, $sBasicName . '_' . $sMode ) ? $sMode : 'global' );
     }
 
-    protected function addElementsToNodeFromArray(&$url, $array, $sMode) {
-        switch ($sMode) {
+    protected function addElementsToNodeFromArray(&$url, $array, $sMode)
+    {
+        switch ( $sMode )
+        {
             case self::MODE_GOOGLE_NEWS:
                 break;
             case self::MODE_GOOGLE_VIDEOS:
                 break;
             case self::MODE_GOOGLE_IMAGES:
-                $this->addElementsToNodeFromArray_images($url, $array);
+                $this->addElementsToNodeFromArray_images( $url, $array );
                 break;
             case '':
             default:
-                $this->addElementsToNodeFromArray_global($url, $array);
+                $this->addElementsToNodeFromArray_global( $url, $array );
                 break;
         }
     }
@@ -611,7 +641,8 @@ abstract class Handler
         }
     }
 
-    private function generateIndexFiles($sMode = '') {
+    private function generateIndexFiles($sMode = '')
+    {
         //
         $ini = \eZINI::instance('ezsitemap.ini');
         $aParams = $ini->variable('Sitemap-'.$sMode, 'Params');
