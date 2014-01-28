@@ -18,14 +18,14 @@ class Example extends Custom
         $node = \eZContentObjectTreeNode::subTreeByNodeID( array(
             'Depth'             => 2,
             'ClassFilterType'   => 'include',
-            'ClassFilterArray'  => array('ceva_heading'),
-            'SortBy'            => array('modified', false)
+            'ClassFilterArray'  => array( 'ceva_heading' ),
+            'SortBy'            => array( 'modified', false )
         ), 8211 );
-        $this->addNodesToArray($aNode, $node, $sMode);
+        $this->addNodesToArray( $aNode, $node );
         \eZContentObject::clearCache();
 
         // Lancement de la génération
-        parent::generateMap( $aNode, $sMode);
+        parent::generateMap( $aNode );
 
         $this->generate( $sMode );
     }
@@ -38,13 +38,13 @@ class Example extends Custom
         $node = \eZContentObjectTreeNode::subTreeByNodeID( array(
             'Depth'             => 2,
             'ClassFilterType'   => 'include',
-            'ClassFilterArray'  => array('ceva_heading'),
-            'SortBy'            => array('modified', false)
+            'ClassFilterArray'  => array( 'ceva_heading' ),
+            'SortBy'            => array( 'modified', false )
         ), 8211 );
         \eZContentObject::clearCache();
 
         // Lancement de la génération
-        parent::generateMap( $node, $sMode);
+        parent::generateMap( $node );
 
         $this->generate( $sMode );
     }

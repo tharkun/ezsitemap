@@ -70,10 +70,10 @@ abstract class Handler
     }
 
     /**
-     * @param string $sMode
+     * @param string $mode
      * @return mixed
      */
-    final public static function instance($sMode = self::MODE_GOOGLE_GLOBAL)
+    final public static function instance($mode = self::MODE_GOOGLE_GLOBAL)
     {
         $class = null;
 
@@ -92,7 +92,7 @@ abstract class Handler
             $class = 'eZ\\Publish\\Sitemap\\Handlers\\Nil';
         }
 
-        return new $class( $sMode );
+        return new $class( $mode );
     }
 
     /**
@@ -150,13 +150,12 @@ abstract class Handler
     }
 
     /**
-     * @param $mode
      * @return $this
      */
-    final public function addFiles($mode)
+    final public function addFiles()
     {
         $this->files[$this->fileNumber] = array(
-            'sName'         => Tools::getSitemapName( $mode, $this->fileNumber ),
+            'sName'         => Tools::getSitemapName( $this->mode, $this->fileNumber ),
             'sXML'          => $this->domDocument->saveXML(),
             'bGenerated'    => false,
         );
@@ -171,15 +170,15 @@ abstract class Handler
     /***********************************************************************************************************************/
 
 
-    final protected function generateMap( array & $aNode, $sMode = self::MODE_GOOGLE_GLOBAL )
+    final protected function generateMap(array &$aNode)
     {
-        Cli::display( "Starting generation : sMode = '$sMode'", 1, 2 );
+        Cli::display( sprintf( "Starting generation : sMode = '%s'", $this->mode ), 1, 2 );
         Cli::displayMemoryUsage();
 
         $urlset = null;
         if ( $this->domDocument == null )
         {
-            $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $sMode ) );
+            $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $this->mode ) );
         }
         else
         {
@@ -204,11 +203,11 @@ abstract class Handler
 
             if ( is_array( $oNode ) )
             {
-                $this->addElementsToNodeFromArray( $url, $oNode, $sMode );
+                $this->addElementsToNodeFromArray( $url, $oNode );
             }
             else if ( $oNode instanceof \eZContentObjectTreeNode )
             {
-                $this->addElementsToNodeFromEZObject( $url, $oNode, $sMode );
+                $this->addElementsToNodeFromEZObject( $url, $oNode );
             }
             else
             {
@@ -222,13 +221,13 @@ abstract class Handler
             $sTempXML = str_replace( '<?xml version="1.0" encoding="utf-8"?>', '', $oDocTemp->saveXML() );
             $iWeight += strlen( substr( $sTempXML, 1, strlen( $sTempXML ) - 2 ) );
 
-            if ( Tools::testLimit( $iWeight, $sMode, $iCompt ) )
+            if ( Tools::testLimit( $iWeight, $this->mode, $iCompt ) )
             {
                 $urlset->removeChild( $url );
-                $this->addFiles( $sMode );
+                $this->addFiles();
                 Cli::display( "Sitemap weight or url limit reached => Generating new file" );
 
-                $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $sMode ) );
+                $this->setDOMDocument( DOMDocument::instance()->init( $urlset, $this->mode ) );
 
                 $urlset->appendChild( $this->domDocument->importNode( $url, true ) );
                 $iCompt = 1;
@@ -241,20 +240,20 @@ abstract class Handler
         Tools::unsetRecursively( $aNode );
 
         Cli::display( "Last node reached", 2 );
-        $this->addFiles( $sMode );
+        $this->addFiles();
         Cli::displayMemoryUsage();
 
         return $this;
     }
 
-    private function getMethodNameToTransformNodeWithMode($sBasicName, $sMode)
+    private function getMethodNameToTransformNodeWithMode($sBasicName)
     {
-        return $sBasicName . '_' . ( method_exists( $this, $sBasicName . '_' . $sMode ) ? $sMode : 'global' );
+        return $sBasicName . '_' . ( method_exists( $this, $sBasicName . '_' . $this->mode ) ? $this->mode : 'global' );
     }
 
-    protected function addElementsToNodeFromArray(&$url, $array, $sMode)
+    protected function addElementsToNodeFromArray(&$url, $array)
     {
-        switch ( $sMode )
+        switch ( $this->mode )
         {
             case self::MODE_GOOGLE_NEWS:
                 break;
@@ -270,12 +269,12 @@ abstract class Handler
         }
     }
 
-    protected function addElementsToNodeFromEZObject(&$url, $oNode, $sMode)
+    protected function addElementsToNodeFromEZObject(&$url, $oNode)
     {
         // récupération de l'url absolue et création de la balise loc
         $this->domDocument->addElement( $url, 'loc', self::$sUrlMainObjects.$oNode->attribute( 'url_alias' ) );
 
-        switch ( $sMode )
+        switch ( $this->mode )
         {
             case self::MODE_GOOGLE_NEWS:
                 $this->addElementsToNodeFromEZObject_news( $url, $oNode );
@@ -283,14 +282,14 @@ abstract class Handler
             case self::MODE_GOOGLE_VIDEOS:
                 //récupération de la date de modif et création de la balise lastmod
                 $oObject = $oNode->attribute( 'object' );
-                $datemod = date( 'c',$oObject->attribute( 'modified' ) );
+                $datemod = date( 'c', $oObject->attribute( 'modified' ) );
                 $this->domDocument->addElement( $url, 'lastmod', $datemod );
 
                 //création des balises changefreq et priority
-                $sChangeFreq = $this->getChangeFreqFromEZObject( $oNode, $sMode );
+                $sChangeFreq = $this->getChangeFreqFromEZObject( $oNode );
                 $this->domDocument->addElement( $url, 'changefreq', $sChangeFreq );
 
-                $priorityVal = $this->getPriorityFromEZObject( $oNode, $sMode );
+                $priorityVal = $this->getPriorityFromEZObject( $oNode );
                 $this->domDocument->addElement( $url, 'priority', $priorityVal );
 
                 $this->addElementsToNodeFromEZObject_videos( $url, $oNode );
@@ -300,22 +299,22 @@ abstract class Handler
                 break;
             case '':
             default:
-                $this->addElementsToNodeFromEZObject_global( $url, $oNode, $sMode );
+                $this->addElementsToNodeFromEZObject_global( $url, $oNode );
                 break;
         }
     }
 
-
-    protected function getPriorityFromEZObject( $oNode, $sMode )
+    protected function getPriorityFromEZObject($oNode)
     {
-        $sMethodName = $this->getMethodNameToTransformNodeWithMode( 'getPriorityFromEZObject', $sMode );
+        $sMethodName = $this->getMethodNameToTransformNodeWithMode( 'getPriorityFromEZObject' );
         return $this->$sMethodName( $oNode );
     }
 
     protected function getPriorityFromEZObject_global($oNode)
     {
         $tab = explode( "/", $oNode->attribute( 'url_alias' ) );
-        $iPriority = 0.9 - 0.1 * ( count( $tab ) - 1 ) ;
+        $iPriority = 0.9 - 0.1 * ( count( $tab ) - 1 );
+
         if ( $iPriority < 0.1 )
         {
             $iPriority = 0.1;
@@ -329,7 +328,7 @@ abstract class Handler
         $iDateJour = strtotime( date( 'Y-m-d' ) );
         $iDateSemaine = strtotime( "-1 week" );
         $oObject = $oNode->attribute( 'object' );
-        if ( $oObject->attribute( 'modified' ) >= $iDateJour)
+        if ( $oObject->attribute( 'modified' ) >= $iDateJour )
         {
             $iPriority = 1.0;
         }
@@ -346,9 +345,9 @@ abstract class Handler
     }
 
 
-    protected function getChangeFreqFromEZObject($oNode, $sMode)
+    protected function getChangeFreqFromEZObject($oNode)
     {
-        $sMethodName = $this->getMethodNameToTransformNodeWithMode( 'getChangeFreqFromEZObject', $sMode );
+        $sMethodName = $this->getMethodNameToTransformNodeWithMode( 'getChangeFreqFromEZObject' );
         return $this->$sMethodName($oNode);
     }
 
@@ -365,21 +364,21 @@ abstract class Handler
     /***********************************************************************************************************************/
 
 
-    final protected function addElementsToNodeFromEZObject_global(& $url, $oNode, $sMode)
+    final protected function addElementsToNodeFromEZObject_global(& $url, $oNode)
     {
         //récupération de la date de modif et création de la balise lastmod
         $this->domDocument->addElement( $url, 'lastmod', date( 'c', $oNode->attribute( 'object' )->attribute( 'modified' ) ) );
         //création des balises changefreq et priority
-        $this->domDocument->addElement( $url, 'changefreq', $this->getChangeFreqFromEZObject( $oNode, $sMode ) );
-        $this->domDocument->addElement( $url, 'priority', $this->getPriorityFromEZObject( $oNode, $sMode ) );
+        $this->domDocument->addElement( $url, 'changefreq', $this->getChangeFreqFromEZObject( $oNode ) );
+        $this->domDocument->addElement( $url, 'priority', $this->getPriorityFromEZObject( $oNode ) );
     }
 
-    final protected function addNodesToArray(array & $aNodes, $mEZContentObjectTreeNode, $sMode)
+    final protected function addNodesToArray(array & $aNodes, $mEZContentObjectTreeNode)
     {
-        $this->pushNodesToArray_global( $aNodes, $mEZContentObjectTreeNode, $sMode );
+        $this->pushNodesToArray_global( $aNodes, $mEZContentObjectTreeNode );
     }
 
-    final protected function pushNodesToArray_global(array & $aNodes, $mEZContentObjectTreeNode, $sMode)
+    final protected function pushNodesToArray_global(array & $aNodes, $mEZContentObjectTreeNode)
     {
         if ( !is_array( $mEZContentObjectTreeNode ) && $mEZContentObjectTreeNode instanceof \eZContentObjectTreeNode )
         {
@@ -392,8 +391,8 @@ abstract class Handler
                 $aNodes[] = array(
                     'loc'            => self::$sUrlMainObjects.$eZContentObjectTreeNode->attribute( 'url_alias' ),
                     'lastmod'        => date( 'c', $eZContentObjectTreeNode->attribute( 'object' )->attribute( 'modified' ) ),
-                    'changefreq'     => $this->getChangeFreqFromEZObject( $eZContentObjectTreeNode, $sMode ),
-                    'priority'       => $this->getPriorityFromEZObject( $eZContentObjectTreeNode, $sMode ),
+                    'changefreq'     => $this->getChangeFreqFromEZObject( $eZContentObjectTreeNode ),
+                    'priority'       => $this->getPriorityFromEZObject( $eZContentObjectTreeNode ),
                 );
             }
         }
@@ -564,21 +563,21 @@ abstract class Handler
     /***********************************************************************************************************************/
 
 
-    final private function deleteFiles($sMode = '')
+    final private function deleteFiles()
     {
         Cli::display( "Deleting files", 1, 3 );
 
         // Checking input parameters
-        if ( $sMode == '' )
+        if ( $this->mode == '' )
         {
-            Cli::display( "Checking input parameters", 1, 0, 50, '$sMode == \'\'' );
+            Cli::display( "Checking input parameters", 1, 0, 50, '$this->mode == \'\'' );
             return false;
         }
         Cli::display( "Checking input parameters", 1, 0, 50, 'ok' );
 
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$sMode, 'Params' );
+        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
 
         $localDir  = ( isset( $aParams["PathLocal"]) ) ? $aParams["PathLocal"] : false;
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
@@ -617,16 +616,16 @@ abstract class Handler
         return $this;
     }
 
-    final public function generateFiles($sMode = '')
+    final public function generateFiles()
     {
         Cli::display( "Generating files", 1, 3 );
 
         $aFiles = $this->files;
 
         // Checking input parameters
-        if ( $sMode == '' || !is_array( $this->files ) )
+        if ( $this->mode == '' || !is_array( $this->files ) )
         {
-            Cli::display( "Checking input parameters", 1, 0, 50, '$sMode == \'\' || !is_array( $aFiles )' );
+            Cli::display( "Checking input parameters", 1, 0, 50, '$this->mode == \'\' || !is_array( $aFiles )' );
             return false;
         }
         Cli::display( "Checking input parameters", 1, 0, 50, 'ok' );
@@ -642,7 +641,7 @@ abstract class Handler
 
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$sMode, 'Params' );
+        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
 
         $localDir  = ( isset( $aParams["PathLocal"]) ) ? $aParams["PathLocal"] : false;
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
@@ -658,7 +657,7 @@ abstract class Handler
         // Checking local folders
         if ( !self::$bHasDeletedFolderContent )
         {
-            $this->deleteFiles( $sMode );
+            $this->deleteFiles( $this->mode );
         }
 
         // Creating files
@@ -696,11 +695,11 @@ abstract class Handler
         }
     }
 
-    private function generateIndexFiles($sMode = '')
+    private function generateIndexFiles()
     {
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$sMode, 'Params' );
+        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
 
         $sitemapindex = null;
@@ -720,7 +719,7 @@ abstract class Handler
         }
 
         // In global sitemap, we can use some other sitemaps from external data. We only add them in the sitemapindex. Sitemap file should be generated in an other way.
-        if ( $sMode == self::MODE_GOOGLE_GLOBAL )
+        if ( $this->mode == self::MODE_GOOGLE_GLOBAL )
         {
             $aCustomSitemapIndexFiles = $this->getCustomSitemapIndexFiles();
             Cli::display( "Fetching custom sitemap index file : count = ".count( $aCustomSitemapIndexFiles ) );
@@ -736,7 +735,7 @@ abstract class Handler
         }
 
         $aIndexParams = $ini->variable( 'Sitemap-index', 'Params' );
-        $sName = 'sitemap-'.$sMode.'-index.xml';
+        $sName = 'sitemap-'.$this->mode.'-index.xml';
         if ( !\eZFileHandler::doExists( $aIndexParams["PathLocal"] ) )
         {
             \eZDir::mkdir( $aIndexParams["PathLocal"], false, true );
@@ -761,10 +760,10 @@ abstract class Handler
         Cli::display( "Writing file '$sName'", 1, 0, 50, 'ok' );
     }
 
-    final public function generate($sMode)
+    final public function generate()
     {
-        $this->generateFiles( $sMode );
-        $this->generateIndexFiles( $sMode );
+        $this->generateFiles();
+        $this->generateIndexFiles();
     }
 
 }
