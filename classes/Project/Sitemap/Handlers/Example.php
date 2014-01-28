@@ -10,9 +10,6 @@ class Example extends Custom
 
     public function generateSitemap()
     {
-        $sMode = 'global';
-        $urlMainObjects = $this->getCustomEZObjectsUrl();
-
         $aNode = array();
 
         $node = \eZContentObjectTreeNode::subTreeByNodeID( array(
@@ -27,14 +24,11 @@ class Example extends Custom
         // Lancement de la génération
         parent::generateMap( $aNode );
 
-        $this->generate( $sMode );
+        $this->generate();
     }
 
     public function generateSitemapNews()
     {
-        $sMode = 'news';
-        $urlMainObjects = $this->getCustomEZObjectsUrl();
-
         $node = \eZContentObjectTreeNode::subTreeByNodeID( array(
             'Depth'             => 2,
             'ClassFilterType'   => 'include',
@@ -46,7 +40,7 @@ class Example extends Custom
         // Lancement de la génération
         parent::generateMap( $node );
 
-        $this->generate( $sMode );
+        $this->generate();
     }
 
 }

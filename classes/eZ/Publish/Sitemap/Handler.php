@@ -11,37 +11,6 @@ abstract class Handler
     const MODE_GOOGLE_VIDEOS   = 'videos';
     const MODE_GOOGLE_IMAGES   = 'images';
 
-
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-    /*************************************** Sitemap "Global" methods ******************************************************/
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-
-
-    abstract protected function getCustomEZObjectsUrl();
-
-
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-    /*************************************** Sitemap "News" methods ********************************************************/
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-
-
-    abstract protected function getGoogleNewsPublicationName();
-
-
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-    /*************************************** Sitemap generation methods ****************************************************/
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-
-
-    abstract public function generateSitemap();
-    abstract public function generateSitemapNews();
-
     private $mode = self::MODE_GOOGLE_GLOBAL;
 
     protected $domDocument = null;
@@ -50,23 +19,12 @@ abstract class Handler
 
     private static $bHasDeletedFolderContent = false;
 
-    protected static $sUrlMainObjects = '';
-
-
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-    /********************************************* Constructor *************************************************************/
-    /***********************************************************************************************************************/
-    /***********************************************************************************************************************/
-
 
     protected function __construct($mode = self::MODE_GOOGLE_GLOBAL)
     {
         $this->setMode( $mode );
 
         self::$bHasDeletedFolderContent = false;
-
-        self::$sUrlMainObjects = $this->getCustomEZObjectsUrl();
     }
 
     /**
@@ -89,7 +47,7 @@ abstract class Handler
 
         if ( is_null( $class ) )
         {
-            $class = 'eZ\\Publish\\Sitemap\\Handlers\\Nil';
+            $class = __CLASS__;
         }
 
         return new $class( $mode );
@@ -155,12 +113,34 @@ abstract class Handler
     final public function addFiles()
     {
         $this->files[$this->fileNumber] = array(
-            'sName'         => Tools::getSitemapName( $this->mode, $this->fileNumber ),
-            'sXML'          => $this->domDocument->saveXML(),
-            'bGenerated'    => false,
+            'name'         => Tools::getSitemapName( $this->mode, $this->fileNumber ),
+            'xml'          => $this->domDocument->saveXML(),
+            'generated'    => false,
         );
         $this->fileNumber++;
 
+        return $this;
+    }
+
+
+    /***********************************************************************************************************************/
+    /***********************************************************************************************************************/
+    /***********************************************************************************************************************/
+
+
+    /**
+     * @return $this
+     */
+    public function generateSitemap()
+    {
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function generateSitemapNews()
+    {
         return $this;
     }
 
@@ -272,7 +252,7 @@ abstract class Handler
     protected function addElementsToNodeFromEZObject(&$url, $oNode)
     {
         // récupération de l'url absolue et création de la balise loc
-        $this->domDocument->addElement( $url, 'loc', self::$sUrlMainObjects.$oNode->attribute( 'url_alias' ) );
+        $this->domDocument->addElement( $url, 'loc', $this->getUrl( $oNode ) );
 
         switch ( $this->mode )
         {
@@ -302,6 +282,25 @@ abstract class Handler
                 $this->addElementsToNodeFromEZObject_global( $url, $oNode );
                 break;
         }
+    }
+
+    /**
+     * @param \eZContentObjectTreeNode $eZContentObjectTreeNode
+     * @return string
+     */
+    protected function getUrl(\eZContentObjectTreeNode $eZContentObjectTreeNode)
+    {
+        $siteUrl = \eZINI::instance()->variable( 'SiteSettings', 'SiteURL' );
+        if ( !preg_match( '@^http://@', $siteUrl ) )
+        {
+            $siteUrl = "http://" . $siteUrl;
+        }
+        if ( substr( $siteUrl, -1 ) == '/' )
+        {
+            $siteUrl = substr( $siteUrl, 0, -1 );
+        }
+
+        return $siteUrl . '/' . $eZContentObjectTreeNode->attribute( 'url_alias' );
     }
 
     protected function getPriorityFromEZObject($oNode)
@@ -389,7 +388,7 @@ abstract class Handler
             foreach ( $mEZContentObjectTreeNode as $eZContentObjectTreeNode )
             {
                 $aNodes[] = array(
-                    'loc'            => self::$sUrlMainObjects.$eZContentObjectTreeNode->attribute( 'url_alias' ),
+                    'loc'            => $this->getUrl( $eZContentObjectTreeNode ),
                     'lastmod'        => date( 'c', $eZContentObjectTreeNode->attribute( 'object' )->attribute( 'modified' ) ),
                     'changefreq'     => $this->getChangeFreqFromEZObject( $eZContentObjectTreeNode ),
                     'priority'       => $this->getPriorityFromEZObject( $eZContentObjectTreeNode ),
@@ -418,6 +417,14 @@ abstract class Handler
     /***********************************************************************************************************************/
     /***********************************************************************************************************************/
 
+
+    /**
+     * @return string
+     */
+    protected function getGoogleNewsPublicationName()
+    {
+        return '';
+    }
 
     protected function addElementsToNodeFromEZObject_news(&$url, $oNode)
     {
@@ -577,7 +584,7 @@ abstract class Handler
 
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
+        $aParams = $ini->variable( 'SitemapSettings-'.$this->mode, 'Params' );
 
         $localDir  = ( isset( $aParams["PathLocal"]) ) ? $aParams["PathLocal"] : false;
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
@@ -641,7 +648,7 @@ abstract class Handler
 
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
+        $aParams = $ini->variable( 'SitemapSettings-'.$this->mode, 'Params' );
 
         $localDir  = ( isset( $aParams["PathLocal"]) ) ? $aParams["PathLocal"] : false;
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
@@ -663,7 +670,7 @@ abstract class Handler
         // Creating files
         foreach ( $this->files as $iKey => $map )
         {
-            if ( $this->files[$iKey]['bGenerated'] )
+            if ( $this->files[$iKey]['generated'] )
             {
                 continue;
             }
@@ -672,26 +679,26 @@ abstract class Handler
             {
                 \eZDir::mkdir( $localDir, false, true );
             }
-            $localFile = $localDir.'/'.$map["sName"];
+            $localFile = $localDir.'/'.$map["name"];
             $handle    = fopen( $localFile, 'wr+' );
             if ( !$handle )
             {
-                Cli::display( "Opening file '{$map["sName"]}'", 1, 0, 50, 'ko : unable to execute fopen' );
+                Cli::display( "Opening file '{$map["name"]}'", 1, 0, 50, 'ko : unable to execute fopen' );
                 continue;
             }
 
-            $write = fwrite( $handle, $map["sXML"] );
+            $write = fwrite( $handle, $map["xml"] );
             if ( !$write )
             {
                 fclose( $handle );
-                Cli::display( "Writing file '{$map["sName"]}'", 1, 0, 50, 'ko : unable to execute fwrite' );
+                Cli::display( "Writing file '{$map["name"]}'", 1, 0, 50, 'ko : unable to execute fwrite' );
                 continue;
             }
             fclose( $handle );
-            Cli::display( "Writing file '{$map["sName"]}'", 1, 0, 50, 'ok' );
+            Cli::display( "Writing file '{$map["name"]}'", 1, 0, 50, 'ok' );
 
-            $this->files[$iKey]['bGenerated'] = true;
-            Tools::unsetRecursively( $this->files[$iKey]["sXML"] );
+            $this->files[$iKey]['generated'] = true;
+            Tools::unsetRecursively( $this->files[$iKey]["xml"] );
         }
     }
 
@@ -699,7 +706,7 @@ abstract class Handler
     {
         //
         $ini = \eZINI::instance( 'ezsitemap.ini' );
-        $aParams = $ini->variable( 'Sitemap-'.$this->mode, 'Params' );
+        $aParams = $ini->variable( 'SitemapSettings-'.$this->mode, 'Params' );
         $sUrl      = ( isset( $aParams["Url"]) ) ? $aParams["Url"] : false;
 
         $sitemapindex = null;
@@ -710,7 +717,7 @@ abstract class Handler
         {
             $sitemap = $this->domDocument->createElement( 'sitemap' );
             $sitemapindex->appendChild( $sitemap );
-            $loc = $this->domDocument->createElement( 'loc', 'http://'.$sUrl.'/'.$map["sName"] );
+            $loc = $this->domDocument->createElement( 'loc', 'http://'.$sUrl.'/'.$map["name"] );
             $sitemap->appendChild( $loc );
 
             $dateModif = date( 'c' );
@@ -734,7 +741,7 @@ abstract class Handler
             }
         }
 
-        $aIndexParams = $ini->variable( 'Sitemap-index', 'Params' );
+        $aIndexParams = $ini->variable( 'SitemapSettings-index', 'Params' );
         $sName = 'sitemap-'.$this->mode.'-index.xml';
         if ( !\eZFileHandler::doExists( $aIndexParams["PathLocal"] ) )
         {
